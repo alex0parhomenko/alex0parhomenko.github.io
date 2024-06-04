@@ -1,162 +1,169 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
+
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>Telegram Mini Apps Vanilla JS Sample App</title>
+    <title>Змейка</title>
     <style>
+        html,
         body {
-            --bg-color: var(--tg-theme-bg-color);
-            font: 12px/18px "Lucida Grande", "Lucida Sans Unicode", Arial, Helvetica, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--tg-theme-text-color);
-            margin: 48px 24px;
-            padding: 0;
-            color-scheme: var(--tg-color-scheme);
+            height: 100%;
+            margin: 0;
         }
 
-        a {
-            color: var(--tg-theme-link-color);
-        }
-        #viewport {
-            position: fixed;
-            left: 0;
-            right: 0;
-            top: 0;
-            height: var(--tg-viewport-stable-height, 100vh);
-            pointer-events: none;
-            transition: all .2s ease;
-        }
-        #viewport:after {
-            content: '';
-            display: block;
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 0;
-            bottom: 0;
-            border-width: 4px;
-            border-style: solid;
-            border-image: linear-gradient(45deg, rgba(64, 224, 208, .5), rgba(173, 255, 47, .5)) 1;
+        /*Задаём глобальные параметры*/
+        body {
+            background: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        #viewport-params-size,
-        #viewport-params-expand {
-            content: attr(text);
-            position: absolute;
-            display: inline-block;
-            background: var(--tg-theme-link-color, rgb(64, 224, 208));
-            right: 4px;
-            left: auto;
-            font-size: 8px;
-            padding: 4px;
-            vertical-align: top;
-        }
-        #viewport-params-size {
-            top: 4px;
-        }
-        #viewport-params-expand {
-            top: 30px;
+        /*Делаем границу вокруг игрового поля*/
+        canvas {
+            border: 1px solid white;
         }
     </style>
 </head>
 
 <body>
-    <main>
-        <div align="center">
-            <a href="https://ton.org/"><img width="48" src="./assets/tapps.png" alt="logo of telegram web apps"></a>
-        </div>
-        <h1>Modals</h1>
-        <button onclick="Telegram.WebApp.showAlert('Hello World!');">Launch Alert</button>
-        <button onclick="showPopup();">Launch Popup</button>
-
-        <h1>Links</h1>
-        <ul>
-            <li>
-                <a href="javascript:Telegram.WebApp.openTelegramLink('https://t.me/trendingapps');">Open link within Telegram</a>
-            </li>
-            <li>
-                <a href="javascript:Telegram.WebApp.openLink('https://ton.org/');">Open link in external browser</a>
-            </li>
-            <li>
-                <a href="javascript:Telegram.WebApp.openLink('https://telegra.ph/api',{try_instant_view:true});">Open link inside Telegram webview</a>
-            </li>
-        </ul>
-
-        <h1>Buttons</h1>
-        <button onclick="Telegram.WebApp.expand();">Expand Webview</button>
-        <button onclick="toggleMainButton();">Toggle Main Button</button>
-    </main>
-    <div id="viewport"></div>
-    <div id="viewport-params-size"></div>
-    <div id="viewport-params-expand"></div>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script>
-        // Init TWA
-        Telegram.WebApp.ready();
-
-        // Event occurs whenever theme settings are changed in the user's Telegram app (including switching to night mode).
-        Telegram.WebApp.onEvent('themeChanged', function() {
-            document.documentElement.className = Telegram.WebApp.colorScheme;
-        });
-
-        // Show main button
-        Telegram.WebApp.MainButton.setParams({
-            text: 'Main Button'
-        });
-        Telegram.WebApp.MainButton.onClick(function () {
-            Telegram.WebApp.showAlert('Main Button was clicked')
-        });	
-        Telegram.WebApp.MainButton.show();
-
-        // Function to call showPopup API
-        function showPopup() {
-            Telegram.WebApp.showPopup({
-                title: 'Title',
-                message: 'Some message',
-                buttons: [
-                    {id: 'link', type: 'default', text: 'Open ton.org'},
-                    {type: 'cancel'},
-                ]
-            }, function(btn) {
-                if (btn === 'link') {
-                    Telegram.WebApp.openLink('https://ton.org/');
-                }
-            });
-        };
-
-        // Function to toggle main TWA button
-        function toggleMainButton() {
-            if (Telegram.WebApp.MainButton.isVisible) {
-                Telegram.WebApp.MainButton.hide();
-            } else {
-                Telegram.WebApp.MainButton.show();
-            }
-        };
-
-        function setViewportData() {
-            var sizeEl = document.getElementById('viewport-params-size');
-            sizeEl.innerText = 'width: ' + window.innerWidth + ' x ' + 
-                'height: ' + Telegram.WebApp.viewportStableHeight;
-
-            var expandEl = document.querySelector('#viewport-params-expand');
-            expandEl.innerText = 'Is Expanded: ' + (Telegram.WebApp.isExpanded ? 'true' : 'false');
+<!-- Рисуем игровое поле -->
+<canvas width="400" height="400" id="game"></canvas>
+<!-- Сам скрипт с игрой -->
+<script>
+    // Поле, на котором всё будет происходить, — тоже как бы переменная
+    var canvas = document.getElementById('game');
+    // Классическая змейка — двухмерная, сделаем такую же
+    var context = canvas.getContext('2d');
+    // Размер одной клеточки на поле — 16 пикселей
+    var grid = 16;
+    // Служебная переменная, которая отвечает за скорость змейки
+    var count = 0;
+    // А вот и сама змейка
+    var snake = {
+        // Начальные координаты
+        x: 160,
+        y: 160,
+        // Скорость змейки — в каждом новом кадре змейка смещается по оси Х или У. На старте будет двигаться горизонтально, поэтому скорость по игреку равна нулю.
+        dx: grid,
+        dy: 0,
+        // Тащим за собой хвост, который пока пустой
+        cells: [],
+        // Стартовая длина змейки — 4 клеточки
+        maxCells: 4
+    };
+    // А это — еда. Представим, что это красные яблоки.
+    var apple = {
+        // Начальные координаты яблока
+        x: 320,
+        y: 320
+    };
+    // Делаем генератор случайных чисел в заданном диапазоне
+    function getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min)) + min;
+    }
+    // Игровой цикл — основной процесс, внутри которого будет всё происходить
+    function loop() {
+        // Хитрая функция, которая замедляет скорость игры с 60 кадров в секунду до 15 (60/15 = 4)
+        requestAnimationFrame(loop);
+        // Игровой код выполнится только один раз из четырёх, в этом и суть замедления кадров, а пока переменная count меньше четырёх, код выполняться не будет
+        if (++count < 10) {
+            return;
         }
-
-        Telegram.WebApp.setHeaderColor('secondary_bg_color');
-
-        setViewportData();
-        Telegram.WebApp.onEvent('viewportChanged', setViewportData);
-
-        Telegram.WebApp.onEvent('themeChanged', function() {
-            document.body.setAttribute('style', '--bg-color:' + Telegram.WebApp.backgroundColor);
+        // Обнуляем переменную скорости
+        count = 0;
+        // Очищаем игровое поле
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        // Двигаем змейку с нужной скоростью
+        snake.x += snake.dx;
+        snake.y += snake.dy;
+        // Если змейка достигла края поля по горизонтали — продолжаем её движение с противоположной строны
+        if (snake.x < 0) {
+            snake.x = canvas.width - grid;
+        }
+        else if (snake.x >= canvas.width) {
+            snake.x = 0;
+        }
+        // Делаем то же самое для движения по вертикали
+        if (snake.y < 0) {
+            snake.y = canvas.height - grid;
+        }
+        else if (snake.y >= canvas.height) {
+            snake.y = 0;
+        }
+        // Продолжаем двигаться в выбранном направлении. Голова всегда впереди, поэтому добавляем её координаты в начало массива, который отвечает за всю змейку
+        snake.cells.unshift({ x: snake.x, y: snake.y });
+        // Сразу после этого удаляем последний элемент из массива змейки, потому что она движется и постоянно освобождает клетки после себя
+        if (snake.cells.length > snake.maxCells) {
+            snake.cells.pop();
+        }
+        // Рисуем еду — красное яблоко
+        context.fillStyle = 'red';
+        context.fillRect(apple.x, apple.y, grid - 1, grid - 1);
+        // Одно движение змейки — один новый нарисованный квадратик
+        context.fillStyle = 'green';
+        // Обрабатываем каждый элемент змейки
+        snake.cells.forEach(function (cell, index) {
+            // Чтобы создать эффект клеточек, делаем зелёные квадратики меньше на один пиксель, чтобы вокруг них образовалась чёрная граница
+            context.fillRect(cell.x, cell.y, grid - 1, grid - 1);
+            // Если змейка добралась до яблока...
+            if (cell.x === apple.x && cell.y === apple.y) {
+                // увеличиваем длину змейки
+                snake.maxCells++;
+                // Рисуем новое яблочко
+                // Помним, что размер холста у нас 400x400, при этом он разбит на ячейки — 25 в каждую сторону
+                apple.x = getRandomInt(0, 25) * grid;
+                apple.y = getRandomInt(0, 25) * grid;
+            }
+            // Проверяем, не столкнулась ли змея сама с собой
+            // Для этого перебираем весь массив и смотрим, есть ли у нас в массиве змейки две клетки с одинаковыми координатами
+            for (var i = index + 1; i < snake.cells.length; i++) {
+                // Если такие клетки есть — начинаем игру заново
+                if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) {
+                    // Задаём стартовые параметры основным переменным
+                    snake.x = 160;
+                    snake.y = 160;
+                    snake.cells = [];
+                    snake.maxCells = 4;
+                    snake.dx = grid;
+                    snake.dy = 0;
+                    // Ставим яблочко в случайное место
+                    apple.x = getRandomInt(0, 25) * grid;
+                    apple.y = getRandomInt(0, 25) * grid;
+                }
+            }
         });
 
-    </script>
-
-    <!-- Eruda is console for mobile browsers -->
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
+    }
+    // Смотрим, какие нажимаются клавиши, и реагируем на них нужным образом
+    document.addEventListener('keydown', function (e) {
+        // Дополнительно проверяем такой момент: если змейка движется, например, влево, то ещё одно нажатие влево или вправо ничего не поменяет — змейка продолжит двигаться в ту же сторону, что и раньше. Это сделано для того, чтобы не разворачивать весь массив со змейкой на лету и не усложнять код игры.
+        // Стрелка влево
+        // Если нажата стрелка влево, и при этом змейка никуда не движется по горизонтали…
+        if (e.which === 37 && snake.dx === 0) {
+            // то даём ей движение по горизонтали, влево, а вертикальное — останавливаем
+            // Та же самая логика будет и в остальных кнопках
+            snake.dx = -grid;
+            snake.dy = 0;
+        }
+        // Стрелка вверх
+        else if (e.which === 38 && snake.dy === 0) {
+            snake.dy = -grid;
+            snake.dx = 0;
+        }
+        // Стрелка вправо
+        else if (e.which === 39 && snake.dx === 0) {
+            snake.dx = grid;
+            snake.dy = 0;
+        }
+        // Стрелка вниз
+        else if (e.which === 40 && snake.dy === 0) {
+            snake.dy = grid;
+            snake.dx = 0;
+        }
+    });
+    // Запускаем игру
+    requestAnimationFrame(loop);
+</script>
 </body>
+
 </html>
